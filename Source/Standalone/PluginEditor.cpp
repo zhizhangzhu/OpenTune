@@ -38,6 +38,7 @@
 #include "Utils/KeyShortcutConfig.h"
 #include "Utils/PlacementActions.h"
 #include "DSP/ReferenceFeatures.h"
+#include "ReferenceAutoTuneUiPolicy.h"
 #include <cmath>
 #include <atomic>
 #include <cstdlib>
@@ -1900,7 +1901,7 @@ void OpenTuneAudioProcessorEditor::syncSharedAppPreferences()
     parameterPanel_.setOpenDyneMode(AudioEditingScheme::usesNotesPrimaryScheme(sharedPreferences.audioEditingScheme));
     parameterPanel_.setActiveTool(static_cast<int>(pianoRoll_.getCurrentTool()));
     arrangementView_.setZoomSensitivity(sharedPreferences.zoomSensitivity);
-    arrangementView_.setExperimentalReferenceControlsEnabled(experimentalFeaturesEnabled);
+    arrangementView_.setReferenceControlsEnabled(true);
     menuBar_.setNoteNameMode(visualPreferences.noteNameMode);
     menuBar_.setShowUnvoicedFrames(visualPreferences.showUnvoicedFrames);
 
@@ -3848,16 +3849,14 @@ OpenTuneAudioProcessorEditor::AutoRefUiState OpenTuneAudioProcessorEditor::evalu
         ? processorRef_.getPlacementId(trackId, placementIndex)
         : 0;
 
-    const auto preferencesState = appPreferences_.getState();
-    const bool experimentalFeaturesEnabled = preferencesState.shared.experimentalFeaturesEnabled;
-
     uiState.availability = processorRef_.queryAutoRefAvailability(targetPlacementId);
-    if (!experimentalFeaturesEnabled) {
-        return uiState;
-    }
-
-    if (uiState.availability.status == OpenTuneAudioProcessor::AutoRefAvailability::Status::Ready) {
+    const bool hasReadyReferenceBinding =
+        uiState.availability.status == OpenTuneAudioProcessor::AutoRefAvailability::Status::Ready;
+    if (ReferenceAutoTuneUiPolicy::shouldUseReferenceAuto(
+            AudioEditingScheme::usesNotesPrimaryScheme(appliedAudioEditingScheme_),
+            hasReadyReferenceBinding)) {
         uiState.presentation.mode = ParameterPanel::AutoButtonPresentation::Mode::ReferenceAuto;
+        uiState.presentation.tooltip = juce::String("Auto tune to the reference clip");
         return uiState;
     }
 
@@ -3870,14 +3869,6 @@ void OpenTuneAudioProcessorEditor::refreshReferenceContext()
     parameterPanel_.setAutoButtonPresentation(autoRefUiState.presentation);
 
     if (!autoRefUiState.availability.hasReferenceBinding()) {
-        pianoRoll_.setReferenceOverlay(std::nullopt);
-        referenceRefreshPending_ = false;
-        return;
-    }
-
-    const auto preferencesState = appPreferences_.getState();
-    const bool experimentalFeaturesEnabled = preferencesState.shared.experimentalFeaturesEnabled;
-    if (!experimentalFeaturesEnabled) {
         pianoRoll_.setReferenceOverlay(std::nullopt);
         referenceRefreshPending_ = false;
         return;
@@ -3951,20 +3942,12 @@ void OpenTuneAudioProcessorEditor::refreshReferenceContext()
 void OpenTuneAudioProcessorEditor::referenceButtonClicked(int trackId, uint64_t placementId,
                                                            juce::Rectangle<int> buttonScreenArea)
 {
-    if (!appPreferences_.getState().shared.experimentalFeaturesEnabled) {
-        return;
-    }
-
     resolveReferenceBindingMenu(trackId, placementId, buttonScreenArea);
 }
 
 void OpenTuneAudioProcessorEditor::resolveReferenceBindingMenu(int trackId, uint64_t targetPlacementId,
                                                                 juce::Rectangle<int> buttonScreenArea)
 {
-    if (!appPreferences_.getState().shared.experimentalFeaturesEnabled) {
-        return;
-    }
-
     auto* arrangement = processorRef_.getStandaloneArrangement();
     juce::PopupMenu menu;
 

@@ -24,6 +24,7 @@
 #include "Plugin/Vst3ProcessorStateCodec.h"
 #elif JucePlugin_Build_Standalone
 #include "DSP/ReferenceAutoAlign.h"
+#include "DSP/ReferenceAutoTuneBindingPolicy.h"
 #include "Plugin/StandaloneProcessorStateCodec.h"
 #endif
 #include "Utils/TimeCoordinate.h"
@@ -1351,6 +1352,12 @@ OpenTuneAudioProcessor::queryAutoRefAvailability(uint64_t targetPlacementId) con
         return availability;
     }
 
+    if (targetPlacement.isRetired) {
+        availability.status = AutoRefAvailability::Status::InvalidSelection;
+        availability.message = juce::String("The selected clip is no longer available; using regular AUTO.");
+        return availability;
+    }
+
     availability.referencePlacementId =
         standaloneArrangement_->getPlacementReferencePlacement(targetTrackId, targetPlacementId);
     if (availability.referencePlacementId == 0) {
@@ -1376,6 +1383,23 @@ OpenTuneAudioProcessor::queryAutoRefAvailability(uint64_t targetPlacementId) con
     if (!referenceFound) {
         availability.status = AutoRefAvailability::Status::InvalidSelection;
         availability.message = juce::String("The reference clip is unavailable; using regular AUTO.");
+        return availability;
+    }
+
+    const double overlapStart = std::max(targetPlacement.timelineStartSeconds,
+                                         referencePlacement.timelineStartSeconds);
+    const double overlapEnd = std::min(targetPlacement.timelineEndSeconds(),
+                                       referencePlacement.timelineEndSeconds());
+    if (!ReferenceAutoTuneBindingPolicy::isUsable(
+            true,
+            targetPlacement.isRetired,
+            referenceFound,
+            referencePlacement.isRetired,
+            overlapEnd > overlapStart)) {
+        availability.status = AutoRefAvailability::Status::InvalidSelection;
+        availability.message = referencePlacement.isRetired
+            ? juce::String("The reference clip is no longer available; using regular AUTO.")
+            : juce::String("The target and reference clips do not overlap; using regular AUTO.");
         return availability;
     }
 
@@ -4777,6 +4801,12 @@ OpenTuneAudioProcessor::executeReferenceAlignmentForPlacement(uint64_t targetPla
         return result;
     }
 
+    if (targetPlacement.isRetired) {
+        result.status = ReferenceAlignmentResult::Status::TargetPlacementNotFound;
+        result.message = "AUTO Ref target placement is no longer available";
+        return result;
+    }
+
     const uint64_t referencePlacementId =
         standaloneArrangement_->getPlacementReferencePlacement(targetTrackId, targetPlacementId);
     if (referencePlacementId == 0) {
@@ -4800,11 +4830,22 @@ OpenTuneAudioProcessor::executeReferenceAlignmentForPlacement(uint64_t targetPla
     }
     juce::ignoreUnused(referenceTrackId);
 
+    if (referencePlacement.isRetired) {
+        result.status = ReferenceAlignmentResult::Status::ReferencePlacementNotFound;
+        result.message = "AUTO Ref reference placement is no longer available";
+        return result;
+    }
+
     const double overlapStart = std::max(targetPlacement.timelineStartSeconds,
                                          referencePlacement.timelineStartSeconds);
     const double overlapEnd = std::min(targetPlacement.timelineEndSeconds(),
                                        referencePlacement.timelineEndSeconds());
-    if (overlapEnd <= overlapStart) {
+    if (!ReferenceAutoTuneBindingPolicy::isUsable(
+            true,
+            targetPlacement.isRetired,
+            true,
+            referencePlacement.isRetired,
+            overlapEnd > overlapStart)) {
         result.status = ReferenceAlignmentResult::Status::NoOverlap;
         result.message = "AUTO Ref target and reference clips do not overlap";
         return result;

@@ -56,6 +56,16 @@ GPU 加速推理：Windows DirectML / macOS CoreML
 
 各平台详细安装步骤（Windows 解压运行、macOS DMG 安装脚本与 Gatekeeper 处理、VST3 安装位置）及运行时文件结构，见 [INSTALL.md](INSTALL.md)。
 
+### 原曲人声参考自动修音（Standalone 第一版）
+
+Standalone 支持使用一条已经分离好的“原曲人声 stem”作为参考，辅助修正另一条目标人声 stem：
+
+1. 导入并摆放目标人声 stem 与原曲人声 stem，保证两段在时间轴上有交叠，且歌曲速度/起点大致一致。
+2. 点击目标 Clip 上的参考按钮，选择原曲人声 Clip 进行绑定。
+3. 等待两个 Clip 的 AI 音高分析完成，然后点击 `AUTO Ref`。
+
+AI 只负责分析音高和生成目标音符，实际修音仍使用 OpenTune 现有音频处理链路；参考 Clip 本身不会被修改。没有参考绑定时，`AUTO` 仍使用普通自动修音流程。第一版不包含人声分离，也不承诺复杂变速或 DTW 对齐。
+
 
 ## 🔨 构建说明
 环境要求、三方依赖准备、构建命令、构建产物与常见问题排查，见 [BUILDING.md](BUILDING.md)。

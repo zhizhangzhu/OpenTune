@@ -8,6 +8,12 @@ namespace OpenTune {
 
 namespace {
 
+bool hasSupportedProducer(const ReferenceFeatureSet& features) noexcept
+{
+    return features.producer == ReferenceFeatureProducer::StandardAuto
+        || features.producer == ReferenceFeatureProducer::Game;
+}
+
 double sourceToTimeline(const ReferenceClipProjection& clip,
                         const EffectiveTimeMap& timeMap,
                         double sourceSeconds)
@@ -87,6 +93,13 @@ AlignmentPatch ReferenceAutoAlign::align(const ReferenceAlignmentRequest& reques
     if (!request.referenceFeatures.isReady()) {
         patch.error = AlignmentPatch::ErrorCode::ReferenceAnalysisNotReady;
         patch.diagnostics = "Reference pitch features are not ready";
+        return patch;
+    }
+
+    if (!hasSupportedProducer(request.targetFeatures)
+        || !hasSupportedProducer(request.referenceFeatures)) {
+        patch.error = AlignmentPatch::ErrorCode::InsufficientFeatures;
+        patch.diagnostics = "AUTO Ref received unsupported pitch feature data";
         return patch;
     }
 

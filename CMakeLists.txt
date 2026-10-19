@@ -1985,4 +1985,47 @@ if(OPENTUNE_BUILD_TESTS)
         "${ARA_SDK_PATH}/ARA_Library"
         "${ARA_SDK_PATH}/ARA_API"
     )
+
+    # Reference AUTO alignment contract tests. This target links only JUCE core
+    # and the time-map implementation; it does not load the plugin or ONNX.
+    add_executable(OpenTuneReferenceAutoAlignTests
+        Tests/ReferenceAutoAlignTests.cpp
+        Source/DSP/ReferenceAutoAlign.cpp
+        Source/Utils/TimeGrid.cpp
+        Source/Utils/AppLogger.cpp
+    )
+    target_include_directories(OpenTuneReferenceAutoAlignTests
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/Source
+            ${OPENTUNE_JUCE_DIR}/modules
+    )
+    target_link_libraries(OpenTuneReferenceAutoAlignTests
+        PRIVATE juce::juce_core
+    )
+    if(MSVC)
+        target_compile_options(OpenTuneReferenceAutoAlignTests PRIVATE /utf-8 /EHsc)
+    endif()
+    add_test(NAME ReferenceAutoAlignTests COMMAND OpenTuneReferenceAutoAlignTests)
+
+    add_executable(OpenTuneReferenceAutoTuneUiPolicyTests
+        Tests/ReferenceAutoTuneUiPolicyTests.cpp
+    )
+    target_include_directories(OpenTuneReferenceAutoTuneUiPolicyTests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source
+    )
+    if(MSVC)
+        target_compile_options(OpenTuneReferenceAutoTuneUiPolicyTests PRIVATE /utf-8 /EHsc)
+    endif()
+    add_test(NAME ReferenceAutoTuneUiPolicyTests COMMAND OpenTuneReferenceAutoTuneUiPolicyTests)
+
+    add_executable(OpenTuneReferenceAutoTuneBindingPolicyTests
+        Tests/ReferenceAutoTuneBindingPolicyTests.cpp
+    )
+    target_include_directories(OpenTuneReferenceAutoTuneBindingPolicyTests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source
+    )
+    if(MSVC)
+        target_compile_options(OpenTuneReferenceAutoTuneBindingPolicyTests PRIVATE /utf-8 /EHsc)
+    endif()
+    add_test(NAME ReferenceAutoTuneBindingPolicyTests COMMAND OpenTuneReferenceAutoTuneBindingPolicyTests)
 endif()

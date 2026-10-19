@@ -128,7 +128,8 @@ public:
     void setVerticalScrollOffset(int offset);
     void setVisibleTrackCount(int count);
     void setInferenceActive(bool active) { inferenceActive_ = active; }
-    void setExperimentalReferenceControlsEnabled(bool enabled);
+    void fitToContent();
+    void setReferenceControlsEnabled(bool enabled);
     void setZoomSensitivity(const ZoomSensitivityConfig::ZoomSensitivitySettings& settings) { zoomSensitivity_ = settings; }
     void setShortcutSettings(const KeyShortcutConfig::KeyShortcutSettings& settings) { shortcutSettings_ = settings; }
     void setTimelineDisplayMode(TimelineDisplayMode mode);
@@ -326,7 +327,7 @@ private:
     int selectedTrack_{0};
     int selectedPlacementIndex_{0};
     uint64_t selectedPlacementId_{0};
-    bool experimentalReferenceControlsEnabled_{false};
+    bool referenceControlsEnabled_{false};
 
     uint64_t hoveredReferencePlacementId_{0};
     juce::Rectangle<int> hoveredReferenceButtonBounds_{};

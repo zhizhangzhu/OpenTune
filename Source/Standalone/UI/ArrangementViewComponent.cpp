@@ -1142,14 +1142,48 @@ void ArrangementViewComponent::setVisibleTrackCount(int count)
     invalidateStableScene();
 }
 
-void ArrangementViewComponent::setExperimentalReferenceControlsEnabled(bool enabled)
+void ArrangementViewComponent::fitToContent()
 {
-    if (experimentalReferenceControlsEnabled_ == enabled) {
+    // 如果用户已手动调整过缩放，不自动覆盖
+    if (userHasManuallyZoomed_) {
         return;
     }
 
-    experimentalReferenceControlsEnabled_ = enabled;
-    if (!experimentalReferenceControlsEnabled_) {
+    double maxEndTime = 0.0;
+    for (int t = 0; t < OpenTuneAudioProcessor::MAX_TRACKS; ++t) {
+        const int placementCount = getStandalonePlacementCount(processor_, t);
+        for (int i = 0; i < placementCount; ++i) {
+            StandaloneArrangement::Placement placement;
+            if (!getStandalonePlacementByIndex(processor_, t, i, placement)) {
+                continue;
+            }
+            maxEndTime = juce::jmax(maxEndTime, placement.timelineEndSeconds());
+        }
+    }
+
+    const int viewportWidth = getVisibleViewportWidth();
+    if (maxEndTime <= 0.0 || viewportWidth <= 0) {
+        return;
+    }
+
+    const int drawableWidth = juce::jmax(1, viewportWidth - 12);
+
+    const auto req = makeViewportRequest(
+        TimelineViewportRequest::Kind::Manual,
+        0.0,
+        0.0,
+        static_cast<double>(drawableWidth) / maxEndTime);
+    commitViewportRequest(req);
+}
+
+void ArrangementViewComponent::setReferenceControlsEnabled(bool enabled)
+{
+    if (referenceControlsEnabled_ == enabled) {
+        return;
+    }
+
+    referenceControlsEnabled_ = enabled;
+    if (!referenceControlsEnabled_) {
         hoveredReferencePlacementId_ = 0;
         hoveredReferenceButtonBounds_ = {};
         setMouseCursor(juce::MouseCursor::NormalCursor);
@@ -1311,7 +1345,7 @@ void ArrangementViewComponent::rebuildContentMetrics()
     revision = hashCombine(revision, waveformRevision_);
     // Include visible track count (tile builder depends on it for lane rendering)
     revision = hashCombine(revision, static_cast<uint64_t>(visibleTrackCount_));
-    revision = hashCombine(revision, experimentalReferenceControlsEnabled_ ? 1ull : 0ull);
+    revision = hashCombine(revision, referenceControlsEnabled_ ? 1ull : 0ull);
 
     contentMetrics_.revision = revision;
     contentMetrics_.maxEndTimeSeconds = maxEndTime;
@@ -1430,7 +1464,7 @@ void ArrangementViewComponent::buildCompositeForeground(
             return isPlacementSelected(trackId, placementId);
         });
     paintHistoricalArrangementClips(g, clips, waveformMipmapCache_);
-    if (experimentalReferenceControlsEnabled_)
+    if (referenceControlsEnabled_)
     {
         for (const auto& clip : clips)
             paintHistoricalClipReferenceBadge(g, clip);
@@ -1879,14 +1913,14 @@ void ArrangementViewComponent::drawMoveDragOverlay(juce::Graphics& g)
         };
         paintHistoricalClipShellAndWaveform(g, clip, waveformMipmapCache_);
         paintHistoricalClipTextFadeGain(g, clip);
-        if (experimentalReferenceControlsEnabled_)
+        if (referenceControlsEnabled_)
             paintHistoricalClipReferenceBadge(g, clip);
     }
 }
 
 void ArrangementViewComponent::drawReferenceHoverOverlay(juce::Graphics& g)
 {
-    if (!experimentalReferenceControlsEnabled_
+    if (!referenceControlsEnabled_
         || hoveredReferencePlacementId_ == 0
         || hoveredReferenceButtonBounds_.isEmpty())
         return;
@@ -2329,7 +2363,7 @@ void ArrangementViewComponent::mouseMove(const juce::MouseEvent& e)
     if (hit.trackId >= 0 && hit.placementIndex >= 0)
     {
         // Reference button area — match paint gate (width > 30)
-        if (experimentalReferenceControlsEnabled_ && hit.placementBounds.getWidth() > 30)
+        if (referenceControlsEnabled_ && hit.placementBounds.getWidth() > 30)
         {
             const auto referenceButtonBounds = referenceButtonBoundsForClip(hit.placementBounds);
             if (referenceButtonBounds.contains(e.getPosition()))
@@ -2422,7 +2456,7 @@ void ArrangementViewComponent::mouseDown(const juce::MouseEvent& e)
     auto hit = hitTestPlacement(e.getPosition());
 
     // Check reference button click (bottom-right corner) 鈥?always active, before seek
-    if (experimentalReferenceControlsEnabled_ && hit.trackId >= 0 && hit.placementBounds.getWidth() > 30)
+    if (referenceControlsEnabled_ && hit.trackId >= 0 && hit.placementBounds.getWidth() > 30)
     {
         const auto refBtnArea = referenceButtonBoundsForClip(hit.placementBounds);
         if (refBtnArea.contains(e.getPosition()))
